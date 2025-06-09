@@ -215,12 +215,24 @@ if prompt:
             st.markdown(prompt, unsafe_allow_html=True)
         with st.chat_message("assistant", avatar="🤖"):
             response_stream = provider.stream_chat(prompt, st.session_state["messages"])
-            full_response = ""
+            reasoning_summary = ""
+            output_text = ""
             response_box = st.empty()
             for chunk in response_stream:
-                full_response += chunk
-                response_box.markdown(full_response, unsafe_allow_html=True)
-            st.session_state["messages"].append({"role": "assistant", "content": full_response})
+                if chunk["type"] == "reasoning_summary":
+                    reasoning_summary += chunk["delta"]
+                elif chunk["type"] == "output_text":
+                    output_text += chunk["delta"]
+                # print(chunk)  # 调试输出
+                if not output_text and not reasoning_summary:
+                    response_box.markdown("正在生成回复...")
+                elif not output_text and reasoning_summary:
+                    response_box.markdown(f"**推理过程：**\n\n{reasoning_summary}")
+                elif output_text and reasoning_summary:
+                    response_box.markdown(f"**推理过程：**\n\n{reasoning_summary}\n\n**总结回复：**\n\n{output_text}")
+                else:
+                    response_box.markdown(output_text, unsafe_allow_html=True)
+            st.session_state["messages"].append({"role": "assistant", "content": output_text})
         # 仅在非隐私模式下保存会话
         if not is_private_mode():
             save_session_messages(st.session_state["current_session"], st.session_state["messages"])
@@ -230,6 +242,12 @@ if st.session_state["theme"] == "dark":
     st.markdown("""
         <style>
         body, .stApp { background-color: #222 !important; color: #eee !important; }
-        .stChatMessage { background: #333 !important; }
+        .stChatMessage, .stChatMessage p, .stChatMessage span, .stChatMessage pre, .stChatMessage code {
+            background: #333 !important;
+            color: #eee !important;
+        }
+        .stMarkdown, .stMarkdown p, .stMarkdown span, .stMarkdown code, .stMarkdown pre {
+            color: #eee !important;
+        }
         </style>
     """, unsafe_allow_html=True)

@@ -55,7 +55,11 @@ class OpenAIProvider(LLMProvider):
             tool_choice=tool_choice,
             input=messages,
             stream=True,
+            reasoning={"summary": "auto"} if self.model.startswith("o") else None,
         )
         for event in response:
-            if hasattr(event, "type") and "output_text.delta" in event.type:
-                yield event.delta
+            if hasattr(event, "type"):
+                if "output_text.delta" in event.type:
+                    yield {"type": "output_text", "delta": event.delta}
+                elif "reasoning_summary_text.delta" in event.type:
+                    yield {"type": "reasoning_summary", "delta": event.delta}
