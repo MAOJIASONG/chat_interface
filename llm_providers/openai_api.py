@@ -34,9 +34,11 @@ class OpenAIProvider(LLMProvider):
             if msg["role"] in ("user", "assistant"):
                 messages.append({"role": msg["role"], "content": msg["content"]})
         messages.append({"role": "user", "content": prompt})
-        response = self.client.responses.create(
-            model=self.model,
-            tools=[{
+        # Only add web_search_preview tool if supported by the model
+        tools = None
+        tool_choice = None
+        if self.web_search and not self.model.startswith("o"):
+            tools = [{
                 "type": "web_search_preview",
                 "search_context_size": self.search_context_size,
                 "user_location": {
@@ -45,8 +47,12 @@ class OpenAIProvider(LLMProvider):
                     "city": "London",
                     "region": "London",
                 }
-            }],
-            tool_choice={"type": "web_search_preview"} if self.web_search else None,
+            }]
+            tool_choice = {"type": "web_search_preview"}
+        response = self.client.responses.create(
+            model=self.model,
+            tools=tools,
+            tool_choice=tool_choice,
             input=messages,
             stream=True,
         )

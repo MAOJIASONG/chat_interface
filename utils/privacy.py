@@ -38,6 +38,7 @@ def check_password():
             message_placeholder.success("登录成功！", icon="✅") 
             time.sleep(1)
             message_placeholder.empty()
+            st.balloons()
         else:  
             st.session_state["password_correct"] = False
             st.error("😕 账号不存在或者密码不正确")

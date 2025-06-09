@@ -50,8 +50,7 @@ def load_session_messages(session_name):
 st.set_page_config(page_title="多功能 LLM 聊天", page_icon="🤖", layout="wide")
 
 if not check_password():
-    st.stop()
-    
+    st.stop()    
 
 # 初始化会话状态
 if "messages" not in st.session_state:
@@ -71,29 +70,43 @@ if "theme" not in st.session_state:
 with st.sidebar:
     st.header("设置")
     provider_name = st.selectbox("选择模型API", list_providers(), help="选择要使用的语言模型API提供商")
+    
     st.toggle("隐私模式", key="private_mode", help="开启后不保存聊天记录")
-    web_search_enabled = st.toggle("联网搜索", key="web_search", value=True, help="开启后模型可以搜索实时信息")
-    search_context_size = st.selectbox("搜索上下文大小", ["low", "medium", "high"], index=1, help="控制搜索返回信息的详细程度")
     if st.session_state.private_mode != st.session_state.get("previous_private_mode", False):
         # 隐私模式状态改变时创建新会话
         new_session = f"session_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
         st.session_state["sessions"][new_session] = []
-        st.session_state["current_session"] = new_session
-        st.session_state["messages"] = [
-            {"role": "assistant", "content": f"👋 欢迎使用新会话：{new_session}！"}
-        ]
+        if is_private_mode():
+            st.session_state["current_session"] = new_session
+            st.session_state["messages"] = [
+                {"role": "assistant", "content": f"👋 隐私模式已开启，聊天记录不会被保存：{new_session}"}
+            ]
+        else:
+            st.session_state["current_session"] = None
+            st.session_state["messages"] = [
+                {"role": "assistant", "content": "👋 隐私模式已关闭，聊天记录将被保存。请创建新会话。"}
+            ]
         st.session_state["previous_private_mode"] = st.session_state.private_mode
     
-    st.session_state["theme"] = st.selectbox("主题模式", ["light", "dark"], index=0 if st.session_state["theme"]=="light" else 1)
     openai_model = None
     ollama_model = None
     if provider_name == "OpenAI":
         openai_models = OpenAIProvider.get_available_models()
         openai_model = st.selectbox("OpenAI模型", openai_models, key="openai_model")
-    if provider_name == "Ollama":
-        ollama_models = OllamaProvider.get_available_models()
-        ollama_model = st.selectbox("Ollama模型", ollama_models, key="ollama_model")
-
+        # 检查是否为 o 系列模型
+        is_o_series = openai_model is not None and openai_model.lower().startswith("o")
+        if is_o_series:
+            web_search_enabled = False
+            st.toggle(f"联网搜索 ({openai_model} 不支持)", key="web_search", value=False, disabled=True, help=f"开启后模型可以搜索实时信息，但 {openai_model} 不支持联网搜索")
+        else:
+            web_search_enabled = st.toggle("联网搜索", key="web_search", value=True, help="开启后模型可以搜索实时信息")
+    else:
+        if provider_name == "Ollama":
+            ollama_models = OllamaProvider.get_available_models()
+            ollama_model = st.selectbox("Ollama模型", ollama_models, key="ollama_model")
+        web_search_enabled = st.toggle("联网搜索", key="web_search", value=True, help="开启后模型可以搜索实时信息")
+    search_context_size = st.selectbox("搜索上下文大小", ["low", "medium", "high"], index=1, help="控制搜索返回信息的详细程度")
+    st.session_state["theme"] = st.selectbox("主题模式", ["light", "dark"], index=0 if st.session_state["theme"]=="light" else 1)
     st.markdown("---")
 
     # 会话管理
@@ -107,20 +120,10 @@ with st.sidebar:
         session_files = [f.replace(".json", "") for f in os.listdir("sessions") if f.endswith(".json")]
     
     # 初始化当前会话
-    if "current_session" not in st.session_state:
-        if session_files:  # 如果有现有会话，加载第一个
-            st.session_state["current_session"] = session_files[0]
-            if not is_private_mode():
-                st.session_state["messages"] = load_session_messages(session_files[0])
-            else:
-                st.session_state["messages"] = [
-                    {"role": "assistant", "content": f"👋 欢迎使用会话：{session_files[0]}！"}
-                ]
-        else:  # 如果没有现有会话，等待用户创建
-            st.session_state["current_session"] = None
-            st.session_state["messages"] = [
-                {"role": "assistant", "content": "👋 欢迎！请点击下方按钮创建新会话。"}
-            ]
+    if st.session_state.get("current_session") is None:
+        st.session_state["messages"] = [
+            {"role": "assistant", "content": "👋 欢迎！请点击下方按钮创建新会话。"}
+        ]
 
     # 创建新会话（自动命名）
     if st.button("创建新会话"):
@@ -143,10 +146,6 @@ with st.sidebar:
             st.session_state["current_session"] = session_name
             if not is_private_mode():
                 st.session_state["messages"] = load_session_messages(session_name)
-            else:
-                st.session_state["messages"] = [
-                    {"role": "assistant", "content": f"👋 欢迎使用新会话：{session_name}！"}
-                ]
             st.rerun()
 
     # 删除会话
@@ -233,4 +232,4 @@ if st.session_state["theme"] == "dark":
         body, .stApp { background-color: #222 !important; color: #eee !important; }
         .stChatMessage { background: #333 !important; }
         </style>
-    """, unsafe_allow_html=True) 
+    """, unsafe_allow_html=True)
