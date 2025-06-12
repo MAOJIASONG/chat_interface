@@ -26,7 +26,7 @@ class OpenAIProvider(LLMProvider):
         # except Exception:
         #     pass
         # 默认模型，o3放在第一位
-        return ["gpt-4.1", "gpt-4.1-mini", "o3", "o4-mini", "gpt-4o", "gpt-3.5-turbo", "gpt-4"]
+        return ["gpt-4.1", "gpt-4.1-mini", "o3-pro", "o3", "o4-mini", "gpt-4o"]
 
     def stream_chat(self, prompt, history):
         messages = []
